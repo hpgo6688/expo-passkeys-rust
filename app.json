@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "safe-wallet",
-    "slug": "safe-wallet",
+    "name": "SafeWallet",
+    "slug": "safe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,14 +9,21 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "top.aijs.wallet",
+      "appleTeamId": "ZFAPH4VJ63",
+      "associatedDomains": [
+        "webcredentials:wallet.aijs.top?mode=developer",
+        "webcredentials:aijs.top?mode=developer"
+      ]
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.example.wallet"
     },
     "web": {
       "bundler": "metro",

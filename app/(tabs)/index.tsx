@@ -1,75 +1,261 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 
-export default function HomeScreen() {
+import { base64 } from "@hexagon/base64";
+import {
+  Base64URLString,
+  PublicKeyCredentialUserEntityJSON,
+} from "@simplewebauthn/typescript-types";
+import * as Application from "expo-application";
+import React from "react";
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import * as passkey from "react-native-passkeys";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import alert from "../../utils/alert";
+
+// ! taken from https://github.com/MasterKale/SimpleWebAuthn/blob/e02dce6f2f83d8923f3a549f84e0b7b3d44fa3da/packages/browser/src/helpers/bufferToBase64URLString.ts
+/**
+ * Convert the given array buffer into a Base64URL-encoded string. Ideal for converting various
+ * credential response ArrayBuffers to string for sending back to the server as JSON.
+ *
+ * Helper method to compliment `base64URLStringToBuffer`
+ */
+export function bufferToBase64URLString(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let str = "";
+
+  for (const charCode of bytes) {
+    str += String.fromCharCode(charCode);
+  }
+
+  const base64String = btoa(str);
+
+  return base64String.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+// ! taken from https://github.com/MasterKale/SimpleWebAuthn/blob/e02dce6f2f83d8923f3a549f84e0b7b3d44fa3da/packages/browser/src/helpers/utf8StringToBuffer.ts
+/**
+ * A helper method to convert an arbitrary string sent from the server to an ArrayBuffer the
+ * authenticator will expect.
+ */
+export function utf8StringToBuffer(value: string): ArrayBuffer {
+  // @ts-ignore
+  return new TextEncoder().encode(value);
+}
+
+/**
+ * Decode a base64url string into its original string
+ */
+export function base64UrlToString(base64urlString: Base64URLString): string {
+  return base64.toString(base64urlString, true);
+}
+
+const bundleId = Application.applicationId?.split(".").reverse().join(".");
+const rp = {
+  id: Platform.select({
+    web: undefined,
+    ios: bundleId,
+    android: bundleId?.replaceAll("_", "-"),
+  }),
+  name: "ReactNativePasskeys",
+} satisfies PublicKeyCredentialRpEntity;
+
+// Don't do this in production!
+const challenge = bufferToBase64URLString(utf8StringToBuffer("fizz"));
+
+const user = {
+  id: bufferToBase64URLString(utf8StringToBuffer("290283490")),
+  displayName: "Echo",
+  name: "Echo",
+} satisfies PublicKeyCredentialUserEntityJSON;
+
+const authenticatorSelection = {
+  userVerification: "required",
+  residentKey: "required",
+} satisfies AuthenticatorSelectionCriteria;
+
+export default function App() {
+  const insets = useSafeAreaInsets();
+
+  const [result, setResult] = React.useState<any>();
+  const [creationResponse, setCreationResponse] = React.useState<
+    NonNullable<Awaited<ReturnType<typeof passkey.create>>>["response"] | null
+  >(null);
+  const [credentialId, setCredentialId] = React.useState("");
+
+  const createPasskey = async () => {
+    try {
+      const json = await passkey.create({
+        challenge,
+        pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+        rp,
+        user,
+        authenticatorSelection,
+        ...(Platform.OS !== "android" && {
+          extensions: { largeBlob: { support: "required" } },
+        }),
+      });
+
+      console.log("creation json -", json);
+
+      if (json?.rawId) setCredentialId(json.rawId);
+      if (json?.response) setCreationResponse(json.response);
+
+      setResult(json);
+    } catch (e) {
+      console.error("create error", e);
+    }
+  };
+
+  const authenticatePasskey = async () => {
+    const json = await passkey.get({
+      rpId: rp.id,
+      challenge,
+      ...(credentialId && {
+        allowCredentials: [{ id: credentialId, type: "public-key" }],
+      }),
+    });
+
+    console.log("authentication json -", json);
+
+    setResult(json);
+  };
+
+  const writeBlob = async () => {
+    console.log("user credential id -", credentialId);
+    if (!credentialId) {
+      alert("No user credential id found - large blob requires a selected credential");
+      return;
+    }
+
+    const json = await passkey.get({
+      rpId: rp.id,
+      challenge,
+      extensions: {
+        largeBlob: { write: bufferToBase64URLString(utf8StringToBuffer("Hey its a private key!")) },
+      },
+      ...(credentialId && {
+        allowCredentials: [{ id: credentialId, type: "public-key" }],
+      }),
+    });
+
+    console.log("add blob json -", json);
+
+    const written = json?.clientExtensionResults?.largeBlob?.written;
+    if (written) alert("This blob was written to the passkey");
+
+    setResult(json);
+  };
+
+  const readBlob = async () => {
+    const json = await passkey.get({
+      rpId: rp.id,
+      challenge,
+      extensions: { largeBlob: { read: true } },
+      ...(credentialId && {
+        allowCredentials: [{ id: credentialId, type: "public-key" }],
+      }),
+    });
+
+    console.log("read blob json -", json);
+
+    const blob = json?.clientExtensionResults?.largeBlob?.blob;
+    if (blob) alert("This passkey has blob", base64UrlToString(blob));
+
+    setResult(json);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={{
+          paddingTop: insets.top,
+          backgroundColor: "#198",
+          paddingBottom: insets.bottom,
+        }}
+        contentContainerStyle={styles.scrollContainer}
+      >
+        <Text style={styles.title}>Testing Passkeys</Text>
+        <Text>Application ID: {Application.applicationId}</Text>
+        <Text>Passkeys are {passkey.isSupported() ? "supported" : "not supported"}</Text>
+        {credentialId && <Text>User Credential ID: {credentialId}</Text>}
+        <View style={styles.buttonContainer}>
+          <Pressable style={styles.button} onPress={createPasskey}>
+            <Text>Create</Text>
+          </Pressable>
+          <Pressable style={styles.button} onPress={authenticatePasskey}>
+            <Text>Authenticate</Text>
+          </Pressable>
+          <Pressable style={styles.button} onPress={writeBlob}>
+            <Text>Add Blob</Text>
+          </Pressable>
+          <Pressable style={styles.button} onPress={readBlob}>
+            <Text>Read Blob</Text>
+          </Pressable>
+          {creationResponse && (
+            <Pressable
+              style={styles.button}
+              onPress={() => {
+                // @ts-ignore
+                alert("Public Key", creationResponse?.getPublicKey() as Uint8Array);
+              }}
+            >
+              <Text>Get PublicKey</Text>
+            </Pressable>
+          )}
+        </View>
+        {result && <Text style={styles.resultText}>Result {JSON.stringify(result, null, 2)}</Text>}
+      </ScrollView>
+      <Text
+        style={{
+          textAlign: "center",
+          position: "absolute",
+          bottom: insets.bottom + 16,
+          left: 0,
+          right: 0,
+        }}
+      >
+        Source available on{" "}
+        <Text
+          onPress={() => Linking.openURL("https://github.com/peterferguson/react-native-passkeys")}
+          style={{ textDecorationLine: "underline" }}
+        >
+          GitHub
+        </Text>
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  scrollContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginVertical: "5%",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  resultText: {
+    maxWidth: "80%",
+  },
+  buttonContainer: {
+    padding: 24,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    rowGap: 4,
+    justifyContent: "space-evenly",
+  },
+  button: {
+    backgroundColor: "#fff",
+    padding: 10,
+    borderWidth: 1,
+    borderRadius: 5,
+    width: "45%",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
   },
 });
