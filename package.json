@@ -7,6 +7,8 @@
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
+     "cargo-ios": "tsx scripts/cargo-ios.ts",
+    "cargo-clean": "cd native_rust_lib && cargo clean",
     "web": "expo start --web",
     "lint": "expo lint"
   },
@@ -47,6 +49,7 @@
     "@types/react": "~19.0.10",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~9.2.0",
+    "tsx": "^4.20.3",
     "typescript": "~5.8.3"
   },
   "private": true
