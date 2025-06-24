@@ -65,7 +65,7 @@ export default function RustRPC() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "orange",
   },
   container: {
     padding: 20,
