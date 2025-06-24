@@ -37,6 +37,9 @@ declare class MyRustModule extends NativeModule<MyRustModuleEvents> {
   evaluateExpression(expression: string): Promise<ExpressionResult>;
   setValueAsync(value: string): Promise<{ success: boolean; value: string }>;
   performanceTest(iterations: number): Promise<PerformanceTestResult>;
+
+  // Add the performGetRequest function
+  performGetRequest(): Promise<string>;
 }
 
 // This call loads the native module object from the JSI.

@@ -328,6 +328,20 @@ public class MyRustModule: Module {
       }
     }
 
+     AsyncFunction("performGetRequest") { (promise: Promise) in
+      DispatchQueue.global(qos: .background).async {
+        let resultPtr = perform_get_request()
+        defer { rust_free_string(resultPtr) }
+        
+        if let resultPtr = resultPtr {
+          let result = String(cString: resultPtr)
+          promise.resolve(result)
+        } else {
+          promise.reject("ERR_REQUEST_FAILED", "Failed to perform request")
+        }
+      }
+    }
+
     // Enables the module to be used as a native view. Definition components that are accepted as part of the
     // view definition: Prop, Events.
     View(MyRustModuleView.self) {

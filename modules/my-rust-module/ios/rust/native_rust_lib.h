@@ -12,3 +12,5 @@ char *rust_add_json(int32_t left, int32_t right);
 void rust_free_string(char *ptr);
 
 char *rust_calculate_json(int32_t left, int32_t right, const char *operation);
+
+char *perform_get_request(void);

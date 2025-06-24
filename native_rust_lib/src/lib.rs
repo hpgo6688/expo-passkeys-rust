@@ -1,5 +1,6 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+use reqwest::{self,header};
 use serde_json::json;
 
 // 原始的加法函数
@@ -121,4 +122,30 @@ pub extern "C" fn rust_calculate_json(
         Ok(c_string) => c_string.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
+}
+
+
+// Function to perform an HTTP GET request and return the result as a C string
+#[unsafe(no_mangle)]
+pub extern "C" fn perform_get_request() -> *mut c_char {
+    let url = "https://jsonplaceholder.typicode.com/posts";
+
+    // Create a runtime to run the async function
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+
+    let result = runtime.block_on(async {
+        let client = reqwest::Client::new();
+        let request = client.get(url)
+            .header(header::ACCEPT, "application/json");
+
+        match request.send().await {
+            Ok(response) => match response.text().await {
+                Ok(body) => CString::new(body).unwrap_or_default().into_raw(),
+                Err(_) => CString::new("Failed to read response body").unwrap_or_default().into_raw(),
+            },
+            Err(_) => CString::new("Request failed").unwrap_or_default().into_raw(),
+        }
+    });
+
+    result
 }
