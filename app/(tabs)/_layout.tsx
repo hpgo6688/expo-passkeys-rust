@@ -38,13 +38,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="rublesign.square" color={color} />,
         }}
       />
-       <Tabs.Screen
-        name="rust-rpc"
-        options={{
-          title: 'Rust RPC',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="ferry.fill" color={color} />,
-        }}
-      />
      
     </Tabs>
   );

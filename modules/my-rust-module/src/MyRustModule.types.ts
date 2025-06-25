@@ -1,25 +1,3 @@
-// import type { StyleProp, ViewStyle } from 'react-native';
-
-// export type OnLoadEventPayload = {
-//   url: string;
-// };
-
-// export type MyRustModuleEvents = {
-//   onChange: (params: ChangeEventPayload) => void;
-// };
-
-// export type ChangeEventPayload = {
-//   value: string;
-// };
-
-// export type MyRustModuleViewProps = {
-//   url: string;
-//   onLoad: (event: { nativeEvent: OnLoadEventPayload }) => void;
-//   style?: StyleProp<ViewStyle>;
-// };
-
-
-
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export type OnLoadEventPayload = {
@@ -124,3 +102,10 @@ export interface BatchCompleteEvent {
   hasErrors: boolean;
   results: BatchResult[];
 }
+
+
+
+export interface User {
+  id: number;
+  name: string;
+};

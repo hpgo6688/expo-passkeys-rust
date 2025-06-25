@@ -1,20 +1,5 @@
-// import { NativeModule, requireNativeModule } from 'expo';
-
-// import { MyRustModuleEvents } from './MyRustModule.types';
-
-// declare class MyRustModule extends NativeModule<MyRustModuleEvents> {
-//   PI: number;
-//   hello(): string;
-//   rustAdd(a: number, b:number): Promise<number>;
-//   setValueAsync(value: string): Promise<void>;
-// }
-
-// // This call loads the native module object from the JSI.
-// export default requireNativeModule<MyRustModule>('MyRustModule');
-
-
 import { NativeModule, requireNativeModule } from 'expo';
-import { BatchOperation, BatchResult, CalculationResult, ExpressionResult, MyRustModuleEvents, PerformanceTestResult } from './MyRustModule.types';
+import { BatchOperation, BatchResult, CalculationResult, ExpressionResult, MyRustModuleEvents, PerformanceTestResult, User } from './MyRustModule.types';
 
 declare class MyRustModule extends NativeModule<MyRustModuleEvents> {
   PI: number;
@@ -27,6 +12,9 @@ declare class MyRustModule extends NativeModule<MyRustModuleEvents> {
   isOperationSupported(operation: string): boolean;
   getModuleInfo(): Record<string, any>;
   formatNumber(number: number, decimals: number): string;
+
+  createUser(id: number, name: string): User;
+  autoMemoryCreateUser(id: number, name: string): User;
 
   // Async functions
   rustAdd(a: number, b: number): Promise<number>;

@@ -4,7 +4,7 @@ public class MyRustModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MyRustModule")
 
-    // 常量定义
+    // Constant definitions
     Constants([
       "PI": Double.pi,
       "VERSION": "1.0.0",
@@ -12,28 +12,28 @@ public class MyRustModule: Module {
       "SUPPORTED_OPERATIONS": ["add", "sub", "mul", "div"]
     ])
 
-    // 事件定义
+    // Event definitions
     Events("onChange", "onCalculation", "onError", "onBatchComplete")
 
-    // === 同步函数 ===
+    // === Synchronous functions ===
     
-    // 基础问候函数
+    // Basic greeting function
     Function("hello") {
       return "Hello from Rust Module! 👋"
     }
 
-    // 同步加法
+    // Synchronous addition
     Function("syncAdd") { (a: Int32, b: Int32) -> Int32 in
       return rust_add(a, b)
     }
 
-    // 检查操作是否支持
+    // Check if an operation is supported
     Function("isOperationSupported") { (operation: String) -> Bool in
       let supportedOps = ["add", "sub", "mul", "div"]
       return supportedOps.contains(operation.lowercased())
     }
 
-    // 获取模块统计信息
+    // Get module info / metadata
     Function("getModuleInfo") { () -> [String: Any] in
       return [
         "name": "MyRustModule",
@@ -53,7 +53,7 @@ public class MyRustModule: Module {
       ]
     }
 
-    // 格式化数字
+    // Format a number with decimal precision
     Function("formatNumber") { (number: Double, decimals: Int) -> String in
       let formatter = NumberFormatter()
       formatter.numberStyle = .decimal
@@ -62,9 +62,53 @@ public class MyRustModule: Module {
       return formatter.string(from: NSNumber(value: number)) ?? String(format: "%.\(decimals)f", number)
     }
 
-    // === 异步函数 ===
+    // Create a user (unsafe memory, manual release required)
+    Function("createUser") { (id: Int32, name: String) -> [String: Any] in
+      let nameLen = name.utf8.count
+      guard nameLen >= 0 else {
+        // Handle invalid length
+        return [:]
+      }
 
-    // 基础 Rust 加法
+      return name.withCString { cString in
+        let user = create_user(id, cString, UInt(nameLen))
+        return [
+          "id": user.id,
+          "name": String(cString: user.name)
+        ]
+      }
+    }
+
+    // Create user with automatic memory management (Box pointer)
+    Function("autoMemoryCreateUser") { (id: Int32, name: String) -> [String: Any] in
+      let nameLen = name.utf8.count
+      guard nameLen >= 0 else {
+        // Handle invalid length
+        return [:]
+      }
+
+      return name.withCString { cString in
+        let userPointer = auto_memory_create_user(id, cString, UInt(nameLen))
+        defer {
+          free_user(userPointer)
+        }
+
+        // Safely unwrap user pointer
+        guard let userPointer = userPointer else {
+          // Handle null pointer
+          return [:]
+        }
+
+        return [
+          "id": userPointer.pointee.id,
+          "name": String(cString: userPointer.pointee.name)
+        ]
+      }
+    }
+
+    // === Asynchronous functions ===
+
+    // Basic async Rust addition
     AsyncFunction("rustAdd") { (a: Int32, b: Int32, promise: Promise) in
       DispatchQueue.global(qos: .userInitiated).async {
         let result = rust_add(a, b)
@@ -72,31 +116,31 @@ public class MyRustModule: Module {
       }
     }
 
-    // 返回字符串结果的加法
+    // Return string result from addition
     AsyncFunction("rustAddString") { (a: Int32, b: Int32, promise: Promise) in
       DispatchQueue.global(qos: .userInitiated).async {
         guard let result = rust_add_string(a, b) else {
           promise.reject("RUST_ERROR", "Failed to get string result from Rust")
           return
         }
-        
+
         let swiftString = String(cString: result)
         rust_free_string(result)
         promise.resolve(swiftString)
       }
     }
 
-    // 返回 JSON 结果的加法
+    // Return JSON result from addition
     AsyncFunction("rustAddJson") { (a: Int32, b: Int32, promise: Promise) in
       DispatchQueue.global(qos: .userInitiated).async {
         guard let result = rust_add_json(a, b) else {
           promise.reject("RUST_ERROR", "Failed to get JSON result from Rust")
           return
         }
-        
+
         let jsonString = String(cString: result)
         rust_free_string(result)
-        
+
         do {
           if let data = jsonString.data(using: .utf8),
              let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
@@ -110,7 +154,7 @@ public class MyRustModule: Module {
       }
     }
 
-    // 通用计算函数
+    // General-purpose calculation function
     AsyncFunction("rustCalculate") { (a: Int32, b: Int32, operation: String, promise: Promise) in
       DispatchQueue.global(qos: .userInitiated).async {
         let operationCString = operation.cString(using: .utf8)
@@ -118,20 +162,20 @@ public class MyRustModule: Module {
           promise.reject("INVALID_OPERATION", "Invalid operation string")
           return
         }
-        
+
         guard let result = rust_calculate_json(a, b, opPtr) else {
           promise.reject("RUST_ERROR", "Calculation failed in Rust")
           return
         }
-        
+
         let jsonString = String(cString: result)
         rust_free_string(result)
-        
+
         do {
           if let data = jsonString.data(using: .utf8),
              let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
             
-            // 发送计算完成事件
+            // Send event on calculation success
             self.sendEvent("onCalculation", [
               "operation": operation,
               "operands": ["a": a, "b": b],
@@ -154,12 +198,12 @@ public class MyRustModule: Module {
       }
     }
 
-    // 批量计算
+    // Perform batch calculations
     AsyncFunction("rustBatchCalculate") { (operations: [[String: Any]], promise: Promise) in
       DispatchQueue.global(qos: .userInitiated).async {
         var results: [[String: Any]] = []
         var hasErrors = false
-        
+
         for (index, operation) in operations.enumerated() {
           guard let a = operation["a"] as? Int32,
                 let b = operation["b"] as? Int32,
@@ -173,7 +217,7 @@ public class MyRustModule: Module {
             hasErrors = true
             continue
           }
-          
+
           let operationCString = op.cString(using: .utf8)
           guard let opPtr = operationCString,
                 let result = rust_calculate_json(a, b, opPtr) else {
@@ -186,10 +230,10 @@ public class MyRustModule: Module {
             hasErrors = true
             continue
           }
-          
+
           let jsonString = String(cString: result)
           rust_free_string(result)
-          
+
           do {
             if let data = jsonString.data(using: .utf8),
                let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
@@ -197,47 +241,45 @@ public class MyRustModule: Module {
               resultWithIndex["batchIndex"] = index
               results.append(resultWithIndex)
             } else {
-              let errorResult: [String: Any] = [
+              results.append([
                 "error": "JSON parse failed",
                 "index": index
-              ]
-              results.append(errorResult)
+              ])
               hasErrors = true
             }
           } catch {
-            let errorResult: [String: Any] = [
+            results.append([
               "error": "JSON parsing exception",
               "index": index,
               "details": error.localizedDescription
-            ]
-            results.append(errorResult)
+            ])
             hasErrors = true
           }
         }
-        
-        // 发送批量完成事件
+
+        // Send event when batch processing is complete
         self.sendEvent("onBatchComplete", [
           "totalOperations": operations.count,
           "successCount": results.count - (hasErrors ? 1 : 0),
           "hasErrors": hasErrors,
           "results": results
         ])
-        
+
         promise.resolve(results)
       }
     }
 
-    // 表达式计算（简单的数学表达式解析）
+    // Evaluate simple math expression (e.g., "3 + 5")
     AsyncFunction("evaluateExpression") { (expression: String, promise: Promise) in
       DispatchQueue.global(qos: .userInitiated).async {
         let trimmed = expression.trimmingCharacters(in: .whitespaces)
-        
-        // 支持的操作符
+
+        // Supported operators
         let operators = ["+", "-", "*", "/"]
         var foundOperator: String?
         var operatorIndex: String.Index?
-        
-        // 找到操作符
+
+        // Find the operator in expression
         for op in operators {
           if let range = trimmed.range(of: op) {
             foundOperator = op
@@ -245,37 +287,37 @@ public class MyRustModule: Module {
             break
           }
         }
-        
+
         guard let op = foundOperator,
               let opIndex = operatorIndex else {
           promise.reject("INVALID_EXPRESSION", "No valid operator found in expression")
           return
         }
-        
+
         let leftPart = String(trimmed[..<opIndex]).trimmingCharacters(in: .whitespaces)
         let rightPart = String(trimmed[trimmed.index(after: opIndex)...]).trimmingCharacters(in: .whitespaces)
-        
+
         guard let a = Int32(leftPart),
               let b = Int32(rightPart) else {
           promise.reject("INVALID_NUMBERS", "Could not parse numbers from expression")
           return
         }
-        
+
         let operation = op == "+" ? "add" :
                        op == "-" ? "sub" :
                        op == "*" ? "mul" :
                        op == "/" ? "div" : "add"
-        
+
         let operationCString = operation.cString(using: .utf8)
         guard let opPtr = operationCString,
               let result = rust_calculate_json(a, b, opPtr) else {
           promise.reject("CALCULATION_ERROR", "Failed to evaluate expression")
           return
         }
-        
+
         let jsonString = String(cString: result)
         rust_free_string(result)
-        
+
         do {
           if let data = jsonString.data(using: .utf8),
              let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
@@ -291,7 +333,7 @@ public class MyRustModule: Module {
       }
     }
 
-    // 设置值并发送事件
+    // Set value and emit event
     AsyncFunction("setValueAsync") { (value: String, promise: Promise) in
       self.sendEvent("onChange", [
         "value": value,
@@ -300,22 +342,22 @@ public class MyRustModule: Module {
       promise.resolve(["success": true, "value": value])
     }
 
-    // 性能测试函数
+    // Performance benchmark test
     AsyncFunction("performanceTest") { (iterations: Int32, promise: Promise) in
       DispatchQueue.global(qos: .userInitiated).async {
         let startTime = CFAbsoluteTimeGetCurrent()
         var totalTime: Double = 0
-        
+
         for i in 0..<iterations {
           let iterationStart = CFAbsoluteTimeGetCurrent()
           let _ = rust_add(i, i + 1)
           let iterationEnd = CFAbsoluteTimeGetCurrent()
           totalTime += (iterationEnd - iterationStart)
         }
-        
+
         let endTime = CFAbsoluteTimeGetCurrent()
         let wallClockTime = endTime - startTime
-        
+
         let result: [String: Any] = [
           "iterations": iterations,
           "totalTime": totalTime,
@@ -323,16 +365,17 @@ public class MyRustModule: Module {
           "averageTime": totalTime / Double(iterations),
           "operationsPerSecond": Double(iterations) / wallClockTime
         ]
-        
+
         promise.resolve(result)
       }
     }
 
-     AsyncFunction("performGetRequest") { (promise: Promise) in
+    // Perform HTTP GET request from Rust
+    AsyncFunction("performGetRequest") { (promise: Promise) in
       DispatchQueue.global(qos: .background).async {
         let resultPtr = perform_get_request()
         defer { rust_free_string(resultPtr) }
-        
+
         if let resultPtr = resultPtr {
           let result = String(cString: resultPtr)
           promise.resolve(result)
@@ -342,10 +385,9 @@ public class MyRustModule: Module {
       }
     }
 
-    // Enables the module to be used as a native view. Definition components that are accepted as part of the
-    // view definition: Prop, Events.
+    // Define a native view that can be used in React Native/Expo
     View(MyRustModuleView.self) {
-      // Defines a setter for the `url` prop.
+      // Defines a setter for the `url` prop
       Prop("url") { (view: MyRustModuleView, url: URL) in
         if view.webView.url != url {
           view.webView.load(URLRequest(url: url))
