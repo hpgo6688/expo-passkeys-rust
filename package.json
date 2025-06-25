@@ -7,7 +7,7 @@
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
-     "cargo-ios": "tsx scripts/cargo-ios.ts",
+    "cargo-ios": "tsx scripts/cargo-ios.ts",
     "cargo-clean": "cd native_rust_lib && cargo clean",
     "web": "expo start --web",
     "lint": "expo lint"
@@ -42,7 +42,8 @@
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
     "react-native-web": "~0.20.0",
-    "react-native-webview": "13.13.5"
+    "react-native-webview": "13.13.5",
+    "@react-native-async-storage/async-storage": "2.1.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
